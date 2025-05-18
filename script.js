@@ -193,9 +193,10 @@ async function processPage(pdfDoc, pageNumber) {
     diffCanvasCtx.putImageData(diffImageData, 0, 0);
 
     curVisPage++;
-    document.getElementById("showPrevButton").disabled = false;
-    if (liveMode || curVisPage === totalPages) {
+
+    if (curVisPage === totalPages) {
       document.getElementById("showNextButton").disabled = true;
+      document.getElementById("showPrevButton").disabled = false;
     }
   }
 
