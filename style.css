@@ -26,6 +26,17 @@ h2 {
 
 #pdfInputContainer {
   margin: auto;
+  padding: 1rem;
+  width: 100%;
+  /* important to keep padding inside the width */
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+}
+
+#pdfInput {
+  width: 100%;
+  max-width: 400px;
 }
 
 input[type="file"] {
@@ -126,6 +137,12 @@ canvas {
   body.loaded {
     height: auto;
     overflow: auto;
+  }
+
+  #pdfInput {
+    width: 100%;
+    /* 90% of the viewport width */
+    max-width: 80vw;
   }
 
   .content-wrapper {
