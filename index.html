@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scafix</title>
+  <link rel="stylesheet" href="style.css" type="text/css" />
+  <script async src="https://docs.opencv.org/master/opencv.js" type="text/javascript"></script>
+  <script src="https://docs.opencv.org/master/utils.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    // Set worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  </script>
+  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+  <script type="text/javascript" src="script.js"></script>
+</head>
+
+<body>
+  <div id="libLoadingScreen" style="display: none">Loading ...</div>
+  <div id="app">
+    <h1>Scafix</h1>
+
+    <h2 class="tag-line" id="tagLine">Clean Scanned PDFs</h2>
+
+    <div id="pdfInputContainer">
+      <input type="file" id="pdfInput" accept="application/pdf" />
+    </div>
+
+    <div id="fileName" style="display: none"></div>
+
+    <div class="content-wrapper" id="contentWrapper" style="display: none">
+      <!-- Buttons at the top -->
+      <div class="button-group button-top" id="topButtons">
+        <button id="resetButton" onclick="resetApp()">Reset</button>
+        <button disabled id="downloadButton" onclick="downloadOutput()">
+          Download
+        </button>
+      </div>
+
+      <!-- Buttons for page navigation -->
+      <div class="button-group button-bottom" id="bottomButtons">
+        <button disabled id="showPrevButton" onclick="showPreviousPage()">
+          Previous
+        </button>
+        <button disabled id="showNextButton" onclick="showNextPage()">
+          Next
+        </button>
+      </div>
+
+      <!-- Canvases -->
+      <div class="canvas-container" id="canvasContainer">
+        <canvas id="originalCanvas"></canvas>
+        <canvas id="diffCanvas"></canvas>
+        <canvas id="finalCanvas"></canvas>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>
