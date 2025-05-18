@@ -36,7 +36,7 @@ h2 {
 
 #pdfInput {
   width: 100%;
-  max-width: 400px;
+  max-width: 25rem;
 }
 
 input[type="file"] {
@@ -112,9 +112,11 @@ input[type="file"]:hover {
 .canvas-container {
   display: flex;
   justify-content: space-evenly;
+  box-sizing: border-box;
   /* flex-wrap: wrap; */
   margin-top: 1em;
-  width: 90%;
+  width: 100%;
+  gap: 2em;
 }
 
 canvas {
@@ -180,7 +182,8 @@ canvas {
   }
 
   canvas {
-    width: 90%;
+    width: 100%;
+    max-width: 90%;
     height: auto;
   }
 }
