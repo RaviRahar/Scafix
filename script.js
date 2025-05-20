@@ -39,22 +39,27 @@ function handlePDFUpload(event) {
 function showUIAfterLoad(filename) {
   document.body.classList.add("loaded");
 
-  document.getElementById("pdfInputContainer").style.display = "none";
-  document.getElementById("tagLine").style.display = "none";
   document.getElementById("fileName").textContent = filename;
-  document.getElementById("fileName").style.display = "block";
 
-  document.getElementById("contentWrapper").style.display = "flex";
+  document.getElementById("tagLine").classList.remove("visible");
+  document.getElementById("pdfInputContainer").classList.remove("visible");
+
+  document.getElementById("fileName").classList.add("visible");
+  document.getElementById("contentWrapper").classList.add("visible");
 }
 
 // Reset UI and canvas
 function resetApp() {
   document.body.classList.remove("loaded");
 
-  document.getElementById("pdfInputContainer").style.display = "block";
-  document.getElementById("tagLine").style.display = "block";
-  document.getElementById("fileName").style.display = "none";
-  document.getElementById("contentWrapper").style.display = "none";
+  document.getElementById("fileName").textContent = "";
+  document.getElementById("pdfInput").value = "";
+
+  document.getElementById("tagLine").classList.add("visible");
+  document.getElementById("pdfInputContainer").classList.add("visible");
+
+  document.getElementById("fileName").classList.remove("visible");
+  document.getElementById("contentWrapper").classList.remove("visible");
 
   liveMode = false;
   curVisPage = 0;
