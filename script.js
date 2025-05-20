@@ -528,7 +528,7 @@ function showNextPage() {
     if (curVisPage < curProcPage - 1) {
       document.getElementById("showPrevButton").disabled = true;
       document.getElementById("showNextButton").disabled = true;
-      renderAllCanvases();
+      renderAllCanvases(curVisPage + 1);
       curVisPage++;
       document.getElementById("showPrevButton").disabled = false;
       if (curVisPage === totalPages) {
@@ -549,7 +549,7 @@ function showPreviousPage() {
   if (curVisPage > 1) {
     document.getElementById("showPrevButton").disabled = true;
     document.getElementById("showNextButton").disabled = true;
-    renderAllCanvases();
+    renderAllCanvases(curVisPage - 1);
     curVisPage--;
     document.getElementById("showNextButton").disabled = false;
     if (curVisPage <= 1) {
