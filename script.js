@@ -9,6 +9,8 @@ let outPdf = null;
 
 // Each element will contain 3 images: in, diff, out
 let allImgArr = [];
+let isMobile = false;
+const maxWidthMobile = "768px";
 
 const RoughCanvas = document.createElement("canvas");
 
@@ -20,6 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Other initialization code
   document.getElementById("downloadButton").disabled = true;
+  isMobile = window.matchMedia("(max-width: " + maxWidthMobile + ")").matches;
 });
 
 // Handle uploaded PDF file
@@ -484,7 +487,7 @@ function makePDFDownloadable(blob) {
 }
 
 // TODO: show progress messages
-function showStatusMessage(message) {}
+function showStatusMessage(message) { }
 
 // Render page on specific canvas
 function renderPageOnCanvas(canvas, canvasID, pageNo) {
