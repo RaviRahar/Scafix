@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+
 # Uncomment if using as standalone file
 # import fitz  # PyMuPDF
 # from PIL import Image
@@ -96,48 +97,139 @@ def remove_black_bars(img):
     return cleaned, overlay
 
 
+def extract_number(filename):
+    # match = re.search(r'(\d+)', filename)
+    # return int(match.group(1)) if match else -1
+
+    # return int(filename.split('-')[1].split('.')[0])
+    return int(filename.removeprefix("page-").removesuffix(".png"))
+
+
+class ImageNavigator:
+    def __init__(self, files):
+        self.files = files
+        self.index = 0
+
+    def current(self):
+        return self.files[self.index]
+
+    def next(self):
+        if self.index < len(self.files) - 1:
+            self.index += 1
+
+    def prev(self):
+        if self.index > 0:
+            self.index -= 1
+
+    def has_next(self):
+        return self.index < len(self.files) - 1
+
+    def has_prev(self):
+        return self.index > 0
+
+
 def wait_key_loop():
     """Wait for user key input: 'j' = next (cleaned), 'i'=original, 'o'=cleaned, 'q'=quit."""
     while True:
         key = cv2.waitKey(0) & 0xFF
-        if key in [ord("j"), ord("q"), ord("i"), ord("o")]:
+        if key in [ord("q"), ord("j"), ord("k"), ord("i"), ord("o")]:
             return key
 
 
 def process_images(input_dir, output_dir):
-    for file in os.listdir(input_dir):
-        if file.endswith(".png"):
-            img_path = os.path.join(input_dir, file)
-            output_path = os.path.join(output_dir, file)
+    files = [file for file in os.listdir(input_dir) if file.endswith(".png")]
+    files.sort(key=extract_number)
+    # files.sort(key=lambda x: int(re.search(r'\d+', x).group()))
 
-            img = cv2.imread(img_path)
+    navigator = ImageNavigator(files)
 
-            if not is_scanned(img):
-                print(f"Image {img_path}: Skipped (not scanned).")
-                pass
+    while True:
+        file = navigator.current()
+        img_path = os.path.join(input_dir, file)
+        output_path = os.path.join(output_dir, file)
 
-            cleaned, overlay = remove_black_bars(img.copy())
+        img = cv2.imread(img_path)
 
-            # prepare grid: original | overlay | cleaned
-            orig = img.copy()
-            h, w = orig.shape[:2]
-            overlay_resized = cv2.resize(overlay, (w, h), interpolation=cv2.INTER_CUBIC)
-            cleaned_resized = cv2.resize(cleaned, (w, h), interpolation=cv2.INTER_CUBIC)
-            grid = np.hstack([orig, overlay_resized, cleaned_resized])
-
-            cv2.imshow("Preview", grid)
-            key = wait_key_loop()
-            if key == ord("q"):
+        if not is_scanned(img):
+            print(f"Image {img_path}: Skipped (not scanned).")
+            if navigator.has_next():
+                navigator.next()
+                continue
+            else:
                 break
 
-            # Save choice: 'i'=orig, 'o'=cleaned, 'j'=cleaned
-            chosen = orig if (key == ord("i")) else cleaned_resized
-            out_path = os.path.join(output_dir, os.path.basename(img_path))
+        cleaned, overlay = remove_black_bars(img.copy())
+        # prepare grid: original | overlay | cleaned
+        orig = img.copy()
+        h, w = orig.shape[:2]
+        overlay_resized = cv2.resize(overlay, (w, h), interpolation=cv2.INTER_CUBIC)
+        cleaned_resized = cv2.resize(cleaned, (w, h), interpolation=cv2.INTER_CUBIC)
+        # grid = np.hstack([orig, overlay_resized, cleaned_resized])
+
+        # cv2.imshow("Preview", grid)
+        cv2.imshow("Preview", overlay_resized)
+        key = wait_key_loop()
+        if key == ord("q"):
+            break
+        elif key == ord("j"):
+            navigator.prev()
+        elif key == ord("k"):
+            navigator.next()
+        elif key == ord("i"):
+            out_path = os.path.join(output_dir, file)
+            cv2.imwrite(out_path, orig, [cv2.IMWRITE_PNG_COMPRESSION, PNG_COMPRESSION])
+            print(f"Saved original: {out_path}")
+            navigator.next()
+        elif key == ord("o"):
+            out_path = os.path.join(output_dir, file)
             cv2.imwrite(
-                out_path, chosen, [cv2.IMWRITE_PNG_COMPRESSION, PNG_COMPRESSION]
+                out_path,
+                cleaned_resized,
+                [cv2.IMWRITE_PNG_COMPRESSION, PNG_COMPRESSION],
+            )
+            print(f"Saved cleaned: {out_path}")
+            navigator.next()
+        else:
+            print(
+                "Unrecognized key. Use 'j'/'k' to navigate, 'i'/'o' to save, 'q' to quit."
             )
 
     cv2.destroyAllWindows()
+
+    # for file in files:
+    #     if file.endswith(".png"):
+    #         img_path = os.path.join(input_dir, file)
+    #         output_path = os.path.join(output_dir, file)
+
+    #         img = cv2.imread(img_path)
+
+    #         if not is_scanned(img):
+    #             print(f"Image {img_path}: Skipped (not scanned).")
+    #             pass
+
+    #         cleaned, overlay = remove_black_bars(img.copy())
+    #         # prepare grid: original | overlay | cleaned
+    #         orig = img.copy()
+    #         h, w = orig.shape[:2]
+    #         overlay_resized = cv2.resize(overlay, (w, h), interpolation=cv2.INTER_CUBIC)
+    #         cleaned_resized = cv2.resize(cleaned, (w, h), interpolation=cv2.INTER_CUBIC)
+    #         # grid = np.hstack([orig, overlay_resized, cleaned_resized])
+
+    #         # cv2.imshow("Preview", grid)
+    #         cv2.imshow("Preview", overlay_resized)
+    #         key = wait_key_loop()
+
+    #         if key == ord("q"):
+    #             break
+
+    #         # Save choice: 'i'=orig, 'o'=cleaned, 'j'=cleaned
+    #         chosen = orig if (key == ord("i")) else cleaned_resized
+    #         out_path = os.path.join(output_dir, os.path.basename(img_path))
+    #         cv2.imwrite(
+    #             out_path, chosen, [cv2.IMWRITE_PNG_COMPRESSION, PNG_COMPRESSION]
+    #         )
+
+    # cv2.destroyAllWindows()
 
 
 def process_pdf(pdf_path, output_dir):
