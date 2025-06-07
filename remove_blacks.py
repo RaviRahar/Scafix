@@ -44,7 +44,50 @@ def is_inside(rect_inner, rect_outer):
     return x1 >= a1 and y1 >= b1 and x2 <= a2 and y2 <= b2
 
 
+def draw_zones(img_shape):
+    height, width = img_shape[:2]
+    zone_img = np.zeros((height, width, 3), dtype=np.uint8)
+
+    # === Define zones ===
+    cx, cy = width // 2, height // 2
+    center_w = int(EXCLUSION_ZONE / 2 * width)
+    center_h = int(EXCLUSION_ZONE / 2 * height)
+    exclusion_rect = (cx - center_w, cy - center_h, cx + center_w, cy + center_h)
+
+    ss_margin_x = int(width * SUPER_SENSITIVE_ZONE)
+    ss_margin_y = int(height * SUPER_SENSITIVE_ZONE)
+    super_sensitive_rects = [
+        (0, 0, width, ss_margin_y),
+        (0, height - ss_margin_y, width, height),
+        (0, 0, ss_margin_x, height),
+        (width - ss_margin_x, 0, width, height),
+    ]
+
+    sensitive_rects = [
+        (0, ss_margin_y, width, exclusion_rect[1]),
+        (0, exclusion_rect[3], width, height - ss_margin_y),
+        (ss_margin_x, 0, exclusion_rect[0], height),
+        (exclusion_rect[2], 0, width - ss_margin_x, height),
+    ]
+
+    # === Draw zones ===
+    # Super sensitive - red
+    for x1, y1, x2, y2 in super_sensitive_rects:
+        zone_img[y1:y2, x1:x2] = (0, 0, 255)
+
+    # Sensitive - green
+    for x1, y1, x2, y2 in sensitive_rects:
+        zone_img[y1:y2, x1:x2] = (0, 255, 0)
+
+    # Exclusion - blue border
+    x1, y1, x2, y2 = exclusion_rect
+    cv2.rectangle(zone_img, (x1, y1), (x2, y2), (255, 0, 0), 2)
+
+    return zone_img
+
+
 def remove_black_bars(img):
+    # cv2.imshow("", draw_zones(img.shape))
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     height, width = gray.shape
 
