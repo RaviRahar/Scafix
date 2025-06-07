@@ -4,6 +4,7 @@ import glob
 import subprocess
 import json
 import tempfile
+import shutil
 from jbig2topdf import create_pdf
 from remove_blacks import process_images as process_pngs
 
@@ -13,6 +14,21 @@ JBIG2_OUTPUT_PREFIX = "output"
 
 def ensure_dir(path):
     os.makedirs(path, exist_ok=True)
+
+
+def remove_recursively(path):
+    """Removes a file or directory recursively."""
+    try:
+        if os.path.isfile(path):
+            os.remove(path)
+            print(f"Removed file: {path}")
+        elif os.path.isdir(path):
+            shutil.rmtree(path)
+            print(f"Removed directory: {path}")
+        else:
+            print(f"Path not found: {path}")
+    except Exception as e:
+        print(f"Error removing {path}: {e}")
 
 
 def run(
@@ -196,6 +212,9 @@ def main():
     WORK_DIR_PNG_CLEANED = os.path.join(WORK_DIR, "png_cleaned")
     WORK_DIR_JBIG2_CLEANED = os.path.join(WORK_DIR, "jbig2_cleaned")
     WORK_DIR_DPI_MAP = os.path.join(WORK_DIR_JBIG2_CLEANED, "dpi_map.json")
+
+    if os.path.isdir(WORK_DIR):
+        remove_recursively(WORK_DIR)
 
     # Ensure all necessary directories exist
     ensure_dir(WORK_DIR)
