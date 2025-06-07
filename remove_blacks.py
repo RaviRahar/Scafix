@@ -151,13 +151,34 @@ def wait_key_loop():
     """Wait for user key input: 'j' = next (cleaned), 'i'=original, 'o'=cleaned, 'q'=quit."""
     while True:
         key = cv2.waitKey(0) & 0xFF
-        if key in [ord("q"), ord("j"), ord("k"), ord("i"), ord("o")]:
+        if key in [
+            ord("q"),
+            ord("j"),
+            ord("k"),
+            ord("i"),
+            ord("o"),
+            ord("r"),
+            ord("e"),
+            ord("b"),
+        ]:
             return key
+
+
+def rotate_img(image, angle):
+    if angle == 0:
+        return image
+    (h, w) = image.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    return cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_LINEAR)
 
 
 def process_images(input_dir, output_dir):
     files = [file for file in os.listdir(input_dir) if file.endswith(".png")]
     files.sort(key=extract_number)
+
+    rotation_angle = 0  # in degrees
+    apply_before_rotation = False
     # files.sort(key=lambda x: int(re.search(r'\d+', x).group()))
 
     navigator = ImageNavigator(files)
@@ -180,6 +201,17 @@ def process_images(input_dir, output_dir):
         cleaned, overlay = remove_black_bars(img.copy())
         # prepare grid: original | overlay | cleaned
         orig = img.copy()
+
+        if apply_before_rotation:
+            # Clean, then rotate cleaned/overlay for display or saving
+            cleaned_temp, overlay_temp = remove_black_bars(orig.copy())
+            cleaned = rotate_img(cleaned_temp, rotation_angle)
+            overlay = rotate_img(overlay_temp, rotation_angle)
+        else:
+            # Rotate, then clean
+            rotated = rotate_img(orig.copy(), rotation_angle)
+            cleaned, overlay = remove_black_bars(rotated)
+
         h, w = orig.shape[:2]
         overlay_resized = cv2.resize(overlay, (w, h), interpolation=cv2.INTER_CUBIC)
         cleaned_resized = cv2.resize(cleaned, (w, h), interpolation=cv2.INTER_CUBIC)
@@ -192,25 +224,41 @@ def process_images(input_dir, output_dir):
             break
         elif key == ord("j"):
             navigator.prev()
+            rotation_angle = 0  # reset on navigation
         elif key == ord("k"):
             navigator.next()
+            rotation_angle = 0
+        elif key == ord("r"):
+            rotation_angle = (rotation_angle - 90) % 360  # clockwise
+        elif key == ord("e"):
+            rotation_angle = (rotation_angle + 90) % 360  # counter-clockwise
+        elif key == ord("b"):
+            apply_before_rotation = not apply_before_rotation
+            print(f"apply_before_rotation set to {apply_before_rotation}")
         elif key == ord("i"):
+            # save original rotated image (no cleaning)
+            final_img = rotate_img(orig, rotation_angle)
             out_path = os.path.join(output_dir, file)
-            cv2.imwrite(out_path, orig, [cv2.IMWRITE_PNG_COMPRESSION, PNG_COMPRESSION])
+            cv2.imwrite(
+                out_path, final_img, [cv2.IMWRITE_PNG_COMPRESSION, PNG_COMPRESSION]
+            )
             print(f"Saved original: {out_path}")
             navigator.next()
+            rotation_angle = 0
         elif key == ord("o"):
+            # save cleaned and rotated image
             out_path = os.path.join(output_dir, file)
             cv2.imwrite(
                 out_path,
                 cleaned_resized,
                 [cv2.IMWRITE_PNG_COMPRESSION, PNG_COMPRESSION],
             )
-            print(f"Saved cleaned: {out_path}")
+            # print(f"Saved cleaned: {out_path}")
             navigator.next()
+            rotation_angle = 0
         else:
             print(
-                "Unrecognized key. Use 'j'/'k' to navigate, 'i'/'o' to save, 'q' to quit."
+                "Unrecognized key. Use 'j'/'k' to navigate, 'i'/'o' to save, 'r'/'e' to rotate, 'q' to quit."
             )
 
     cv2.destroyAllWindows()
