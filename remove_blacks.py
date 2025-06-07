@@ -13,9 +13,10 @@ THRESHOLD_VALUE = 20
 MORPH_KERNEL_SIZE = (15, 15)
 DILATION_ITERATIONS = 1
 MIN_BORDER_AREA = 10000
-EDGE_PROXIMITY_RATIO = 0.2
-CENTER_PROXIMITY_RATIO = 0.4
-EXTREMELY_SENSITIVE_ZONE = 0.02
+# EXCLUSION_ZONE = 0.96
+# SUPER_SENSITIVE_ZONE = 0.01
+EXCLUSION_ZONE = 0.96
+SUPER_SENSITIVE_ZONE = 0.01
 DPI = 300  # keep full clarity
 PNG_COMPRESSION = 0  # no PNG compression for intermediary files
 
@@ -29,6 +30,20 @@ def is_scanned(image):
     return black_ratio > 0.01
 
 
+def rect_overlap(r1, r2):
+    """Check if two rectangles overlap"""
+    x1, y1, x2, y2 = r1
+    a1, b1, a2, b2 = r2
+    return not (x2 <= a1 or x1 >= a2 or y2 <= b1 or y1 >= b2)
+
+
+def is_inside(rect_inner, rect_outer):
+    """Check if one rectangle is fully inside another"""
+    x1, y1, x2, y2 = rect_inner
+    a1, b1, a2, b2 = rect_outer
+    return x1 >= a1 and y1 >= b1 and x2 <= a2 and y2 <= b2
+
+
 def remove_black_bars(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     height, width = gray.shape
@@ -39,60 +54,64 @@ def remove_black_bars(img):
     morph = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
     morph = cv2.dilate(morph, kernel, iterations=DILATION_ITERATIONS)
 
-    # === Step 2: Infer text zones ===
-    text_binary = cv2.adaptiveThreshold(
-        gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 15, 10
-    )
-    text_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 3))
-    text_mask = cv2.dilate(text_binary, text_kernel, iterations=2)
-    text_mask = cv2.morphologyEx(text_mask, cv2.MORPH_CLOSE, (5, 5))
-
     overlay = img.copy()
     cleaned = img.copy()
 
-    # === Step 3: Contour detection & removal ===
-    contours, _ = cv2.findContours(morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # === Step 2: Define Zones ===
+    # Exclusion (center)
     cx, cy = width // 2, height // 2
-    center_w = int(CENTER_PROXIMITY_RATIO * width)
-    center_h = int(CENTER_PROXIMITY_RATIO * height)
-    x1, y1 = cx - center_w, cy - center_h
-    x2, y2 = cx + center_w, cy + center_h
-    sx1, sy1 = int(width * EXTREMELY_SENSITIVE_ZONE), int(
-        height * EXTREMELY_SENSITIVE_ZONE
-    )
-    sx2, sy2 = width - sx1, height - sy1
+    center_w = int(EXCLUSION_ZONE / 2 * width)
+    center_h = int(EXCLUSION_ZONE / 2 * height)
+    exclusion_rect = (cx - center_w, cy - center_h, cx + center_w, cy + center_h)
+
+    # Super Sensitive (edges)
+    ss_margin_x = int(width * SUPER_SENSITIVE_ZONE)
+    ss_margin_y = int(height * SUPER_SENSITIVE_ZONE)
+    super_sensitive_rects = [
+        (0, 0, width, ss_margin_y),  # Top
+        (0, height - ss_margin_y, width, height),  # Bottom
+        (0, 0, ss_margin_x, height),  # Left
+        (width - ss_margin_x, 0, width, height),  # Right
+    ]
+
+    # Sensitive (between exclusion and super sensitive)
+    sensitive_rects = [
+        (0, ss_margin_y, width, exclusion_rect[1]),  # Top
+        (0, exclusion_rect[3], width, height - ss_margin_y),  # Bottom
+        (ss_margin_x, 0, exclusion_rect[0], height),  # Left
+        (exclusion_rect[2], 0, width - ss_margin_x, height),  # Right
+    ]
+
+    # === Step 3: Contour detection and zone-based removal ===
+    contours, _ = cv2.findContours(morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
         area = w * h
-        spans_full_w = w >= width * 0.98
-        spans_full_h = h >= height * 0.98
-        touches_zone = x <= sx1 or x + w >= sx2 or y <= sy1 or y + h >= sy2
-        near_edge = (
-            x < EDGE_PROXIMITY_RATIO * width
-            or x + w > (1 - EDGE_PROXIMITY_RATIO) * width
-            or y < EDGE_PROXIMITY_RATIO * height
-            or y + h > (1 - EDGE_PROXIMITY_RATIO) * height
-            or spans_full_w
-            or spans_full_h
-        )
-        is_center = x < x2 and x + w > x1 and y < y2 and y + h > y1
+        contour_rect = (x, y, x + w, y + h)
 
-        bar_mask = np.zeros_like(text_mask)
-        cv2.drawContours(bar_mask, [cnt], -1, 255, -1)
-        overlaps = cv2.bitwise_and(bar_mask, text_mask)
-        overlaps_text = np.count_nonzero(overlaps) > 0
+        # Skip if entirely inside exclusion zone
+        if is_inside(contour_rect, exclusion_rect):
+            continue
 
-        force = touches_zone
-        regular = (
-            area > MIN_BORDER_AREA and near_edge and not is_center and not overlaps_text
-        )
+        removed = False
 
-        if force or regular:
-            color = (0, 255, 0) if not force else (0, 0, 255)
-            bg_color = (255, 255, 255)
-            cv2.drawContours(cleaned, [cnt], -1, bg_color, -1)
-            cv2.drawContours(overlay, [cnt], -1, color, 5)
+        # Remove anything overlapping with super sensitive zone
+        for ss_rect in super_sensitive_rects:
+            if rect_overlap(contour_rect, ss_rect):
+                cv2.drawContours(cleaned, [cnt], -1, (255, 255, 255), -1)
+                cv2.drawContours(overlay, [cnt], -1, (0, 0, 255), 3)
+                removed = True
+                break
+        if removed:
+            continue
+
+        # Remove if in sensitive zone, area > MIN_BORDER_AREA, and not in exclusion
+        for sens_rect in sensitive_rects:
+            if rect_overlap(contour_rect, sens_rect) and area > MIN_BORDER_AREA:
+                cv2.drawContours(cleaned, [cnt], -1, (255, 255, 255), -1)
+                cv2.drawContours(overlay, [cnt], -1, (0, 255, 0), 3)
+                break
 
     return cleaned, overlay
 
